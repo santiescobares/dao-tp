@@ -99,23 +99,3 @@ frontend/src/
   pages/       Una página por sección del menú
 docs/diagramas Diagramas de clases UML
 ```
-
-## Guion para la exposición (≈10 minutos)
-
-1. **Login como veterinaria** (`vet1`). Mostrar el tablero: muestras por etapa de la cadena de custodia.
-2. **Mascotas → una mascota → Nueva atención.** Elegir una mascota con vacunas pendientes: aparece la
-   advertencia del esquema obligatorio. Aplicar una vacuna, pedir dos análisis y registrar. Se emite la
-   orden y las muestras quedan *Extraídas*.
-3. **Empaquetado.** Seleccionar las muestras y probar primero el contenedor de temperatura ambiente:
-   el sistema avisa que no es compatible. Elegir una conservadora refrigerada → se genera el remito y el
-   precinto. **Imprimir remito**.
-4. **Despachar** el remito y registrar un **punto de control**.
-5. **Login como laboratorio** (`lab1`). Abrir el remito y registrar la recepción con **precinto roto**:
-   todas las muestras pasan a *Rechazada*. Abrir una muestra → **Trazabilidad**: ciclo de vida
-   cortado y registro de custodia.
-6. **Laboratorio:** cargar el resultado de una muestra recibida → pasa a *Analizada*.
-7. **Login como admin.** Emitir el **comprobante** de la atención desde la historia clínica (no cobra las
-   muestras rechazadas). Mostrar la **agenda** e intentar reservar un turno superpuesto.
-8. **Reportes:** recorrer los cinco reportes y exportar uno a CSV.
-9. En el código: `estados_muestra.py` (State), `tarifas.py` (Strategy), `singleton.py` (Singleton) y
-   `tests/test_patrones.py`.
