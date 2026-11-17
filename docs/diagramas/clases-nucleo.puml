@@ -1,0 +1,269 @@
+@startuml clases-nucleo
+!pragma layout smetana
+skinparam dpi 170
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam ArrowColor #475569
+skinparam ClassBorderColor #334155
+skinparam ClassBackgroundColor #FFFFFF
+skinparam PackageBorderColor #94A3B8
+skinparam PackageFontColor #0F766E
+skinparam NoteBackgroundColor #F0FDFA
+skinparam NoteBorderColor #0F766E
+hide empty members
+left to right direction
+
+title Núcleo del dominio: atención clínica, derivación y trazabilidad de muestras
+
+package "Organización" {
+  class Clinica {
+    nombre : str
+    direccion : str
+    telefono : str
+    activa : bool
+  }
+  class Laboratorio {
+    nombre : str
+    direccion : str
+  }
+  class Profesional {
+    nombre : str
+    apellido : str
+    matricula : str
+    especialidad : str
+    tipo : TipoProfesional
+  }
+  class Usuario {
+    email : str
+    password_hash : str
+    rol : Rol
+    activo : bool
+    + clinica_id() : int
+  }
+}
+
+package "Atención clínica" {
+  class Cliente {
+    dni : str
+    nombre : str
+    apellido : str
+    telefono : str
+    email : str
+  }
+  class Mascota {
+    nombre : str
+    raza : str
+    sexo : Sexo
+    fecha_nacimiento : date
+    peso_kg : float
+    + edad_en_semanas() : int
+  }
+  class Especie {
+    nombre : str
+  }
+  class Vacuna {
+    nombre : str
+    obligatoria : bool
+    edad_minima_semanas : int
+    refuerzo_meses : int
+    precio : float
+  }
+  class HistoriaClinica {
+    numero : str
+    fecha_apertura : date
+    alergias : str
+    observaciones : str
+  }
+  class Atencion {
+    tipo : TipoAtencion
+    fecha : datetime
+    motivo : str
+    diagnostico : str
+    peso_kg : float
+  }
+  class Tratamiento {
+    descripcion : str
+    medicamento : str
+    dosis : str
+    duracion_dias : int
+  }
+  class AplicacionVacuna {
+    fecha : date
+    lote : str
+  }
+}
+
+package "Derivación al laboratorio" {
+  class TipoAnalisis {
+    nombre : str
+    tipo_muestra : TipoMuestra
+    precio : float
+    temperatura_min : float
+    temperatura_max : float
+    horas_viabilidad : int
+  }
+  class OrdenDerivacion {
+    numero : str
+    fecha_emision : datetime
+    urgente : bool
+    + estado() : str
+  }
+  class Muestra <<Contexto State>> {
+    codigo : str
+    fecha_extraccion : datetime
+    estado : str
+    motivo_rechazo : MotivoRechazo
+    + {static} extraer(codigo, tipo, registro) : Muestra
+    + cambiar_estado(nuevo : EstadoMuestra, registro)
+    + empaquetar(registro)
+    + despachar(registro)
+    + recibir(registro)
+    + rechazar(motivo, registro)
+    + analizar(registro)
+  }
+  class HistorialEstadoMuestra <<inmutable>> {
+    estado_anterior : str
+    estado_nuevo : str
+    fecha : datetime
+    observacion : str
+  }
+  class ResultadoAnalisis {
+    fecha : datetime
+    valores : str
+    conclusion : str
+  }
+}
+
+package "Transporte y cadena de custodia" {
+  class Conservadora {
+    codigo : str
+    capacidad : int
+    temperatura_min : float
+    temperatura_max : float
+    estado : EstadoConservadora
+  }
+  class RemitoBiologico <<Contexto State>> {
+    numero : str
+    fecha_emision : datetime
+    fecha_despacho : datetime
+    fecha_recepcion : datetime
+    estado : str
+    transportista : str
+    + despachar(registro)
+    + validar_evento_envio()
+    + recibir(registro, rechazos)
+    + rechazar(motivo, registro)
+    + horas_en_transito() : float
+  }
+  class PrecintoSanitario {
+    codigo : str
+    fecha_colocacion : datetime
+    estado : EstadoPrecinto
+    fecha_verificacion : datetime
+  }
+  class EventoEnvio <<inmutable>> {
+    fecha : datetime
+    tipo : TipoEventoEnvio
+    ubicacion : str
+    responsable : str
+    temperatura : float
+    fuera_de_rango : bool
+  }
+  class RecepcionLaboratorio {
+    fecha : datetime
+    estado_precinto : EstadoPrecinto
+    codigo_precinto_verificado : str
+    temperatura_llegada : float
+    aceptada : bool
+  }
+}
+
+package "Patrón State: ciclo de vida de la muestra" #F8FAFC {
+  abstract class EstadoMuestra {
+    nombre : str
+    descripcion : str
+    es_final : bool
+    + empaquetar(muestra, registro)
+    + despachar(muestra, registro)
+    + recibir(muestra, registro)
+    + rechazar(muestra, motivo, registro)
+    + analizar(muestra, registro)
+  }
+  class Extraida
+  class Empaquetada
+  class EnTransito
+  class Recibida
+  class Analizada
+  class Rechazada
+  class RegistroCambio <<dataclass>> {
+    usuario_id : int
+    observacion : str
+    fecha : datetime
+  }
+}
+
+package "Patrón State: ciclo de vida del remito" #F8FAFC {
+  abstract class EstadoRemito {
+    nombre : str
+    descripcion : str
+    + despachar(remito, registro)
+    + validar_evento_envio(remito)
+    + recibir(remito, registro, rechazos)
+    + rechazar(remito, motivo, registro)
+  }
+  class Preparado
+  class EnTransitoRemito
+  class Recibido
+  class Rechazado
+}
+
+Clinica "1" -- "0..*" Profesional : emplea >
+Usuario "0..1" --> "0..1" Profesional
+
+Cliente "1" -- "0..*" Mascota : responsable de >
+Mascota "0..*" --> "1" Especie
+Especie "1" -- "0..*" Vacuna : esquema >
+Mascota "1" *-- "1" HistoriaClinica
+HistoriaClinica "1" *-- "0..*" Atencion
+Atencion "0..*" --> "1" Clinica
+Atencion "0..*" --> "1" Profesional
+Atencion "1" *-- "0..*" Tratamiento
+Atencion "1" -- "0..*" AplicacionVacuna
+AplicacionVacuna "0..*" --> "1" Vacuna
+Mascota "1" -- "0..*" AplicacionVacuna
+
+Atencion "1" -- "0..*" OrdenDerivacion : emite >
+OrdenDerivacion "1" *-- "1..*" Muestra
+Muestra "0..*" --> "1" TipoAnalisis
+Muestra "1" *-- "1..*" HistorialEstadoMuestra : trazabilidad >
+Muestra "1" -- "0..1" ResultadoAnalisis
+ResultadoAnalisis "0..*" --> "1" Profesional : firma >
+
+RemitoBiologico "0..1" o-- "1..*" Muestra : transporta >
+RemitoBiologico "0..*" --> "1" Conservadora
+RemitoBiologico "0..*" --> "1" Clinica : origen >
+RemitoBiologico "0..*" --> "1" Laboratorio : destino >
+RemitoBiologico "1" *-- "1" PrecintoSanitario
+RemitoBiologico "1" *-- "0..*" EventoEnvio : cadena de envío >
+RemitoBiologico "1" -- "0..1" RecepcionLaboratorio
+Conservadora "0..*" --> "1" Clinica
+
+Muestra ..> EstadoMuestra : delega en
+EstadoMuestra <|-- Extraida
+EstadoMuestra <|-- Empaquetada
+EstadoMuestra <|-- EnTransito
+EstadoMuestra <|-- Recibida
+EstadoMuestra <|-- Analizada
+EstadoMuestra <|-- Rechazada
+EstadoMuestra ..> RegistroCambio : usa
+
+RemitoBiologico ..> EstadoRemito : delega en
+EstadoRemito <|-- Preparado
+EstadoRemito <|-- EnTransitoRemito
+EstadoRemito <|-- Recibido
+EstadoRemito <|-- Rechazado
+
+
+@enduml

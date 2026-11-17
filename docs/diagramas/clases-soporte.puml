@@ -1,0 +1,163 @@
+@startuml clases-soporte
+!pragma layout smetana
+skinparam dpi 170
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam ArrowColor #475569
+skinparam ClassBorderColor #334155
+skinparam ClassBackgroundColor #FFFFFF
+skinparam PackageBorderColor #94A3B8
+skinparam PackageFontColor #0F766E
+skinparam NoteBackgroundColor #F0FDFA
+skinparam NoteBorderColor #0F766E
+hide empty members
+
+title Procesos de soporte: stock, agenda y facturación + patrones Strategy y Singleton
+
+package "Stock de insumos y conservadoras" {
+  class Clinica {
+    nombre : str
+  }
+  class Insumo {
+    nombre : str
+    unidad : str
+    stock_actual : float
+    stock_minimo : float
+    + bajo_minimo() : bool
+    + registrar_movimiento(tipo, cantidad, motivo, usuario_id) : MovimientoStock
+  }
+  class MovimientoStock {
+    tipo : TipoMovimiento
+    cantidad : float
+    stock_resultante : float
+    fecha : datetime
+    motivo : str
+  }
+  class Conservadora {
+    codigo : str
+    capacidad : int
+    temperatura_min : float
+    temperatura_max : float
+    estado : EstadoConservadora
+  }
+}
+
+package "Agenda de profesionales" {
+  class Profesional {
+    matricula : str
+    tipo : TipoProfesional
+  }
+  class HorarioProfesional {
+    dia_semana : int
+    hora_desde : time
+    hora_hasta : time
+    + contiene(inicio, fin) : bool
+  }
+  class Turno {
+    inicio : datetime
+    fin : datetime
+    tipo : TipoTurno
+    estado : EstadoTurno
+    motivo : str
+    + se_superpone_con(inicio, fin) : bool
+  }
+  class Mascota
+  class Muestra
+}
+
+package "Facturación" {
+  class Atencion {
+    tipo : TipoAtencion
+    fecha : datetime
+  }
+  class Comprobante {
+    numero : str
+    fecha : datetime
+    total : float
+  }
+  class ItemComprobante {
+    concepto : str
+    tipo : TipoItem
+    cantidad : int
+    precio_unitario : float
+    subtotal : float
+  }
+  class ServicioFacturacion {
+    + calcular_lineas(atencion) : list<LineaComprobante>
+    + emitir(atencion_id, usuario) : Comprobante
+  }
+}
+
+package "Patrón Strategy: tarifas" #F8FAFC {
+  interface EstrategiaTarifa {
+    + calcular(atencion) : LineaComprobante
+  }
+  class TarifaConsulta
+  class TarifaControl
+  class TarifaUrgencia
+  class LineaComprobante <<dataclass>> {
+    concepto : str
+    tipo : TipoItem
+    precio_unitario : float
+    cantidad : int
+    + subtotal() : float
+  }
+}
+
+package "Patrón Singleton" #F8FAFC {
+  class SingletonMeta <<metaclass>> {
+    - {static} _instancias : dict
+    - {static} _lock : RLock
+    + __call__(*args) : object
+  }
+  class Configuracion <<singleton>> {
+    url_base_datos : str
+    secreto_jwt : str
+    minutos_expiracion_token : int
+    precio_base_atencion : float
+    descuento_control : float
+    recargo_urgencia : float
+    recargo_urgencia_nocturna : float
+  }
+  class BaseDeDatos <<singleton>> {
+    engine : Engine
+    + crear_tablas()
+    + nueva_sesion() : Session
+  }
+}
+
+Clinica "1" -- "0..*" Insumo
+Insumo "1" *-- "0..*" MovimientoStock
+MovimientoStock "0..*" --> "0..1" Atencion : consumo en >
+Clinica "1" -- "0..*" Conservadora
+
+Profesional "1" *-- "0..*" HorarioProfesional
+Profesional "1" -- "0..*" Turno
+Turno "0..*" --> "0..1" Mascota
+Turno "0..*" --> "0..1" Muestra : procesamiento >
+Atencion "0..1" --> "0..1" Turno
+
+Atencion "1" -- "0..1" Comprobante
+Comprobante "1" *-- "1..*" ItemComprobante
+Comprobante "0..*" --> "1" Clinica
+
+ServicioFacturacion ..> EstrategiaTarifa : elige según tipo de atención
+EstrategiaTarifa <|.. TarifaConsulta
+EstrategiaTarifa <|.. TarifaControl
+EstrategiaTarifa <|.. TarifaUrgencia
+EstrategiaTarifa ..> LineaComprobante : crea
+ServicioFacturacion ..> Comprobante : emite
+
+SingletonMeta <.. Configuracion : metaclass
+SingletonMeta <.. BaseDeDatos : metaclass
+BaseDeDatos ..> Configuracion : lee url
+TarifaUrgencia ..> Configuracion : lee recargos
+
+note bottom of Turno
+  Validación: no se reserva un turno
+  que se superponga con otro no cancelado
+  del mismo profesional ni fuera de su horario.
+end note
+@enduml
